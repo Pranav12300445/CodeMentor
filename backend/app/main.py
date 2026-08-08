@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.routes import repository
+from app.api.routes import parser
 
 
 app = FastAPI(
@@ -11,6 +12,7 @@ app = FastAPI(
 
 
 app.include_router(repository.router)
+app.include_router(parser.router)
 
 
 @app.get("/")
