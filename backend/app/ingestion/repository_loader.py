@@ -1,22 +1,26 @@
-import os
+from pathlib import Path
 import zipfile
 import uuid
 
 
-UPLOAD_DIR = "data/uploads"
-REPOSITORY_DIR = "data/repositories"
+# CodeMentor project root
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+UPLOAD_DIR = PROJECT_ROOT / "data" / "uploads"
+REPOSITORY_DIR = PROJECT_ROOT / "data" / "repositories"
 
 
 def save_and_extract_repository(file_content: bytes, filename: str):
+
     repository_id = str(uuid.uuid4())
 
-    upload_dir = os.path.join(UPLOAD_DIR, repository_id)
-    repository_dir = os.path.join(REPOSITORY_DIR, repository_id)
+    upload_dir = UPLOAD_DIR / repository_id
+    repository_dir = REPOSITORY_DIR / repository_id
 
-    os.makedirs(upload_dir, exist_ok=True)
-    os.makedirs(repository_dir, exist_ok=True)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    repository_dir.mkdir(parents=True, exist_ok=True)
 
-    zip_path = os.path.join(upload_dir, filename)
+    zip_path = upload_dir / filename
 
     with open(zip_path, "wb") as file:
         file.write(file_content)
@@ -26,5 +30,5 @@ def save_and_extract_repository(file_content: bytes, filename: str):
 
     return {
         "repository_id": repository_id,
-        "repository_path": repository_dir
+        "repository_path": str(repository_dir)
     }
