@@ -4,12 +4,8 @@ from app.ingestion.repository_loader import (
     save_and_extract_repository
 )
 
-from app.ingestion.file_scanner import (
-    scan_repository
-)
-
-from app.ingestion.language_detector import (
-    detect_language
+from app.ingestion.repository_processor import (
+    RepositoryProcessor
 )
 
 
@@ -17,6 +13,9 @@ router = APIRouter(
     prefix="/api/repository",
     tags=["Repository"]
 )
+
+
+processor = RepositoryProcessor()
 
 
 @router.post("/upload")
@@ -38,29 +37,32 @@ async def upload_repository(
 
     file_content = await file.read()
 
-    repository = save_and_extract_repository(
-        file_content,
-        file.filename
-    )
+    if not file_content:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty"
+        )
 
-    files = scan_repository(
-        repository["repository_path"]
-    )
+    try:
 
-    file_information = []
+        repository = save_and_extract_repository(
+            file_content,
+            file.filename
+        )
 
-    for file_path in files:
+        result = processor.process_repository(
+            repository_path=repository["repository_path"],
+            repository_id=repository["repository_id"]
+        )
 
-        language = detect_language(file_path)
+        return {
+            "message": "Repository processed successfully",
+            **result
+        }
 
-        file_information.append({
-            "file": file_path,
-            "language": language
-        })
+    except Exception as exc:
 
-    return {
-        "message": "Repository uploaded successfully",
-        "repository_id": repository["repository_id"],
-        "total_files": len(file_information),
-        "files": file_information
-    }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Repository processing failed: {exc}"
+        )
