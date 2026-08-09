@@ -62,7 +62,11 @@ async def upload_repository(
 
     except Exception as exc:
 
+        import traceback
+
+        traceback.print_exc()
+
         raise HTTPException(
             status_code=500,
-            detail=f"Repository processing failed: {exc}"
+            detail=f"Repository processing failed: {type(exc).__name__}: {exc}"
         )

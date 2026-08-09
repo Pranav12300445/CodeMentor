@@ -5,12 +5,14 @@ from app.ingestion.file_scanner import scan_repository
 from app.ingestion.language_detector import detect_language
 from app.parsers.tree_sitter_parser import TreeSitterParser
 from app.chunking.code_chunker import create_code_chunks
+from app.ingestion.indexing_service import IndexingService
 
 
 class RepositoryProcessor:
 
     def __init__(self):
         self.parser = TreeSitterParser()
+        self.indexing_service = IndexingService()
 
     def process_repository(
         self,
@@ -86,6 +88,12 @@ class RepositoryProcessor:
                     "reason": f"Parser error: {exc}"
                 })
 
+        # Index all generated chunks into Qdrant
+        indexed_count = self.indexing_service.index_chunks(
+            chunks=all_chunks,
+            repository_id=repository_id
+        )
+
         return {
             "repository_id": repository_id,
             "repository_path": repository_path,
@@ -93,6 +101,7 @@ class RepositoryProcessor:
             "processed_files": len(processed_files),
             "skipped_files": len(skipped_files),
             "total_chunks": len(all_chunks),
+            "indexed_chunks": indexed_count,
             "files": processed_files,
             "skipped": skipped_files,
             "chunks": all_chunks
