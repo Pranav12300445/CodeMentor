@@ -4,6 +4,7 @@ from app.api.routes import repository
 from app.api.routes import parser
 from app.api.routes import search
 from app.api.routes import chat
+from app.database.database import initialize_database
 
 
 app = FastAPI(
@@ -12,6 +13,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
+initialize_database()
 
 app.include_router(repository.router)
 app.include_router(parser.router)

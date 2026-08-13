@@ -9,7 +9,8 @@ from qdrant_client.models import (
     PointStruct,
     Filter,
     FieldCondition,
-    MatchValue
+    MatchValue,
+    FilterSelector
 )
 
 
@@ -23,29 +24,38 @@ COLLECTION_NAME = os.getenv(
     "codementor_code"
 )
 
+EMBEDDING_DIMENSION = int(
+    os.getenv(
+        "EMBEDDING_DIMENSION",
+        "768"
+    )
+)
+
 
 class QdrantService:
 
     def __init__(self):
+
         self.client = QdrantClient(
             url=QDRANT_URL
         )
+
+        # Automatically create collection
+        # if it does not exist.
+        self.create_collection(
+            vector_size=EMBEDDING_DIMENSION
+        )
+
+    # --------------------------------------------------
+    # COLLECTION
+    # --------------------------------------------------
 
     def create_collection(
         self,
         vector_size: int
     ):
 
-        existing_collections = (
-            self.client.get_collections()
-        )
-
-        collection_names = [
-            collection.name
-            for collection in existing_collections.collections
-        ]
-
-        if COLLECTION_NAME in collection_names:
+        if self.collection_exists():
             return
 
         self.client.create_collection(
@@ -56,6 +66,28 @@ class QdrantService:
             )
         )
 
+    def collection_exists(self) -> bool:
+
+        collections = self.client.get_collections()
+
+        return COLLECTION_NAME in [
+            collection.name
+            for collection in collections.collections
+        ]
+
+    def get_collection_info(self):
+
+        if not self.collection_exists():
+            return None
+
+        return self.client.get_collection(
+            collection_name=COLLECTION_NAME
+        )
+
+    # --------------------------------------------------
+    # INSERT / UPSERT
+    # --------------------------------------------------
+
     def upsert_chunks(
         self,
         vectors: List[List[float]],
@@ -63,9 +95,13 @@ class QdrantService:
     ):
 
         if len(vectors) != len(payloads):
+
             raise ValueError(
                 "Number of vectors and payloads must match"
             )
+
+        if not vectors:
+            return 0
 
         points = []
 
@@ -73,6 +109,14 @@ class QdrantService:
             vectors,
             payloads
         ):
+
+            if len(vector) != EMBEDDING_DIMENSION:
+
+                raise ValueError(
+                    f"Expected embedding dimension "
+                    f"{EMBEDDING_DIMENSION}, "
+                    f"got {len(vector)}"
+                )
 
             points.append(
                 PointStruct(
@@ -89,20 +133,9 @@ class QdrantService:
 
         return len(points)
 
-    def collection_exists(self) -> bool:
-
-        collections = self.client.get_collections()
-
-        return COLLECTION_NAME in [
-            collection.name
-            for collection in collections.collections
-        ]
-
-    def get_collection_info(self):
-
-        return self.client.get_collection(
-            collection_name=COLLECTION_NAME
-        )
+    # --------------------------------------------------
+    # SEARCH
+    # --------------------------------------------------
 
     def search(
         self,
@@ -110,6 +143,19 @@ class QdrantService:
         repository_id: str,
         limit: int = 5
     ):
+
+        if len(vector) != EMBEDDING_DIMENSION:
+
+            raise ValueError(
+                f"Expected embedding dimension "
+                f"{EMBEDDING_DIMENSION}, "
+                f"got {len(vector)}"
+            )
+
+        if not repository_id:
+            raise ValueError(
+                "Repository ID must be provided"
+            )
 
         search_filter = Filter(
             must=[
@@ -129,3 +175,70 @@ class QdrantService:
             limit=limit,
             with_payload=True
         )
+
+    # --------------------------------------------------
+    # DELETE REPOSITORY
+    # --------------------------------------------------
+
+    def delete_repository(
+        self,
+        repository_id: str
+    ) -> int:
+
+        if not repository_id:
+            raise ValueError(
+                "Repository ID must be provided"
+            )
+
+        if not isinstance(repository_id, str):
+            raise TypeError(
+                "Repository ID must be a string"
+            )
+
+        repository_id = repository_id.strip()
+
+        if not repository_id:
+            raise ValueError(
+                "Repository ID cannot be empty or whitespace"
+            )
+
+        # Collection may not exist.
+        # Treat that as nothing to delete.
+        if not self.collection_exists():
+            return 0
+
+        search_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="repository_id",
+                    match=MatchValue(
+                        value=repository_id
+                    )
+                )
+            ]
+        )
+
+        # First find matching points so we know
+        # how many points are being deleted.
+        points, _ = self.client.scroll(
+            collection_name=COLLECTION_NAME,
+            scroll_filter=search_filter,
+            limit=10000,
+            with_payload=False,
+            with_vectors=False
+        )
+
+        deleted_count = len(points)
+
+        if deleted_count == 0:
+            return 0
+
+        self.client.delete(
+            collection_name=COLLECTION_NAME,
+            points_selector=FilterSelector(
+                filter=search_filter
+            ),
+            wait=True
+        )
+
+        return deleted_count

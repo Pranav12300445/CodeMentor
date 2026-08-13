@@ -73,3 +73,6 @@ htmlcov/
 # ============================================================
 
 *.local
+
+# Local SQLite database
+backend/codementor.db
