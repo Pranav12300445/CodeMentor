@@ -1,6 +1,7 @@
 import {
     useEffect,
-    useState
+    useState,
+    useCallback
 } from "react";
 
 import Sidebar from "./components/Sidebar";
@@ -42,8 +43,8 @@ export default function App() {
     ] = useState<Repository | null>(null);
 
     const [
-        loading,
-        setLoading
+        initialLoading,
+        setInitialLoading
     ] = useState(true);
 
     const [
@@ -56,40 +57,52 @@ export default function App() {
         setActiveTab
     ] = useState<Tab>("dashboard");
 
+    const [
+        deleteError,
+        setDeleteError
+    ] = useState<string | null>(null);
 
-    const loadRepositories = async () => {
 
-        try {
+    const loadRepositories = useCallback(
+        async (isInitial: boolean = false) => {
 
-            setLoading(true);
+            try {
 
-            const data =
-                await getRepositories();
+                if (isInitial) {
+                    setInitialLoading(true);
+                }
 
-            setRepositories(
-                data.repositories
-            );
+                const data =
+                    await getRepositories();
 
-        } catch (error) {
+                setRepositories(
+                    data.repositories
+                );
 
-            console.error(
-                "Failed to load repositories:",
-                error
-            );
+            } catch (error) {
 
-        } finally {
+                console.error(
+                    "Failed to load repositories:",
+                    error
+                );
 
-            setLoading(false);
+            } finally {
 
-        }
-    };
+                if (isInitial) {
+                    setInitialLoading(false);
+                }
+
+            }
+        },
+        []
+    );
 
 
     useEffect(() => {
 
-        loadRepositories();
+        loadRepositories(true);
 
-    }, []);
+    }, [loadRepositories]);
 
 
     useEffect(() => {
@@ -103,25 +116,9 @@ export default function App() {
         file: File
     ) => {
 
-        try {
+        await uploadRepository(file);
 
-            await uploadRepository(file);
-
-            await loadRepositories();
-
-        } catch (error) {
-
-            console.error(
-                "Upload failed:",
-                error
-            );
-
-            alert(
-                "Repository upload failed."
-            );
-
-            throw error;
-        }
+        await loadRepositories();
     };
 
 
@@ -137,6 +134,8 @@ export default function App() {
         if (!confirmed) {
             return;
         }
+
+        setDeleteError(null);
 
         try {
 
@@ -160,15 +159,19 @@ export default function App() {
                 error
             );
 
-            alert(
-                "Failed to delete repository."
+            setDeleteError(
+                "Failed to delete repository. Please try again."
             );
+
+            setTimeout(() => {
+                setDeleteError(null);
+            }, 4000);
 
         }
     };
 
 
-    if (loading) {
+    if (initialLoading) {
 
         return (
             <div className="app-loading">
@@ -310,7 +313,7 @@ export default function App() {
                                     Status
                                 </span>
 
-                                <span className="status">
+                                <span className={`status-badge ${selectedRepository.status}`}>
                                     ●{" "}
                                     {
                                         selectedRepository.status
@@ -327,6 +330,22 @@ export default function App() {
                                     {
                                         selectedRepository
                                             .original_filename
+                                    }
+                                </span>
+                            </div>
+
+                            <div className="detail-row">
+                                <span>
+                                    Created
+                                </span>
+
+                                <span>
+                                    {
+                                        selectedRepository.created_at
+                                            ? new Date(
+                                                selectedRepository.created_at
+                                            ).toLocaleString()
+                                            : "—"
                                     }
                                 </span>
                             </div>
@@ -440,6 +459,13 @@ export default function App() {
                     )}
 
                 </header>
+
+
+                {deleteError && (
+                    <div className="inline-error">
+                        {deleteError}
+                    </div>
+                )}
 
 
                 <section className={

@@ -11,7 +11,9 @@ import {
     ChevronDown,
     ChevronRight,
     FileCode,
-    Loader2
+    Loader2,
+    Copy,
+    Check
 } from "lucide-react";
 
 import type {
@@ -43,6 +45,9 @@ export default function ChatPanel({
     const [expandedSources, setExpandedSources] =
         useState<Set<string>>(new Set());
 
+    const [copiedId, setCopiedId] =
+        useState<string | null>(null);
+
     const messagesEndRef =
         useRef<HTMLDivElement>(null);
 
@@ -62,6 +67,7 @@ export default function ChatPanel({
     useEffect(() => {
         setMessages([]);
         setInput("");
+        setExpandedSources(new Set());
     }, [repository.id]);
 
 
@@ -79,6 +85,27 @@ export default function ChatPanel({
 
             return next;
         });
+    };
+
+
+    const handleCopy = async (
+        text: string,
+        id: string
+    ) => {
+
+        try {
+
+            await navigator.clipboard.writeText(text);
+
+            setCopiedId(id);
+
+            setTimeout(() => {
+                setCopiedId(null);
+            }, 2000);
+
+        } catch {
+            console.error("Failed to copy");
+        }
     };
 
 
@@ -191,13 +218,39 @@ export default function ChatPanel({
 
                     const code = match[2].trim();
 
+                    const blockId =
+                        `code-block-${index}`;
+
                     return (
                         <div
                             key={index}
                             className="chat-code-block"
                         >
                             <div className="code-block-header">
-                                {language}
+                                <span>{language}</span>
+
+                                <button
+                                    className="copy-code-button"
+                                    onClick={() =>
+                                        handleCopy(
+                                            code,
+                                            blockId
+                                        )
+                                    }
+                                    title="Copy code"
+                                >
+                                    {copiedId === blockId ? (
+                                        <>
+                                            <Check size={12} />
+                                            Copied
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy size={12} />
+                                            Copy
+                                        </>
+                                    )}
+                                </button>
                             </div>
 
                             <pre>
@@ -365,8 +418,14 @@ export default function ChatPanel({
                                                                 {source.file_path}
                                                             </span>
 
+                                                            {source.name && (
+                                                                <span className="source-tag name">
+                                                                    {source.name}
+                                                                </span>
+                                                            )}
+
                                                             <span className="source-tag">
-                                                                {source.chunk_type}
+                                                                {source.node_type}
                                                             </span>
 
                                                             {source.language && (
@@ -375,11 +434,21 @@ export default function ChatPanel({
                                                                 </span>
                                                             )}
 
+                                                            {source.start_line != null && (
+                                                                <span className="source-lines">
+                                                                    L{source.start_line}
+                                                                    {source.end_line != null &&
+                                                                        source.end_line !== source.start_line &&
+                                                                        `–${source.end_line}`
+                                                                    }
+                                                                </span>
+                                                            )}
+
                                                         </div>
 
                                                         <pre className="source-code">
                                                             <code>
-                                                                {source.content}
+                                                                {source.code}
                                                             </code>
                                                         </pre>
                                                     </div>
@@ -415,7 +484,7 @@ export default function ChatPanel({
                                     size={16}
                                     className="spinning"
                                 />
-                                Thinking...
+                                CodeMentor is analyzing the codebase...
                             </div>
                         </div>
 

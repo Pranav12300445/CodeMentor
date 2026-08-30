@@ -6,7 +6,9 @@ import {
     Search,
     FileCode,
     Loader2,
-    AlertCircle
+    AlertCircle,
+    Copy,
+    Check
 } from "lucide-react";
 
 import type {
@@ -43,6 +45,9 @@ export default function SearchPanel({
 
     const [error, setError] =
         useState<string | null>(null);
+
+    const [copiedIndex, setCopiedIndex] =
+        useState<number | null>(null);
 
 
     const handleSearch = async () => {
@@ -100,6 +105,27 @@ export default function SearchPanel({
     };
 
 
+    const handleCopy = async (
+        code: string,
+        index: number
+    ) => {
+
+        try {
+
+            await navigator.clipboard.writeText(code);
+
+            setCopiedIndex(index);
+
+            setTimeout(() => {
+                setCopiedIndex(null);
+            }, 2000);
+
+        } catch {
+            console.error("Failed to copy");
+        }
+    };
+
+
     const getScoreColor = (score: number) => {
 
         if (score >= 0.8) return "#3fb950";
@@ -107,6 +133,17 @@ export default function SearchPanel({
         if (score >= 0.4) return "#d29922";
 
         return "#8b949e";
+    };
+
+
+    const getDisplayScore = (result: SearchResult) => {
+
+        const score =
+            result.hybrid_score ??
+            result.score ??
+            0;
+
+        return score;
     };
 
 
@@ -220,6 +257,19 @@ export default function SearchPanel({
                 )}
 
 
+                {searching && (
+
+                    <div className="search-loading">
+                        <Loader2
+                            size={24}
+                            className="spinning"
+                        />
+                        <p>Searching codebase...</p>
+                    </div>
+
+                )}
+
+
                 {searched &&
                     results.length === 0 &&
                     !searching && (
@@ -229,7 +279,7 @@ export default function SearchPanel({
                         <AlertCircle size={24} />
 
                         <p>
-                            No results found for
+                            No matching code found for
                             "{query}"
                         </p>
 
@@ -238,64 +288,106 @@ export default function SearchPanel({
                 )}
 
 
-                {results.map((result, index) => (
+                {results.map((result, index) => {
 
-                    <div
-                        key={index}
-                        className="search-result-card"
-                    >
+                    const displayScore =
+                        getDisplayScore(result);
 
-                        <div className="result-header">
+                    return (
+                        <div
+                            key={index}
+                            className="search-result-card"
+                        >
 
-                            <div className="result-file">
+                            <div className="result-header">
 
-                                <FileCode size={14} />
+                                <div className="result-file">
 
-                                <span className="result-path">
-                                    {result.file_path}
-                                </span>
+                                    <FileCode size={14} />
+
+                                    <span className="result-path">
+                                        {result.file_path}
+                                    </span>
+
+                                    {result.start_line != null && (
+                                        <span className="result-lines">
+                                            L{result.start_line}
+                                            {result.end_line != null &&
+                                                result.end_line !== result.start_line &&
+                                                `–${result.end_line}`
+                                            }
+                                        </span>
+                                    )}
+
+                                </div>
+
+                                <div className="result-tags">
+
+                                    {result.name && (
+                                        <span className="result-tag name">
+                                            {result.name}
+                                        </span>
+                                    )}
+
+                                    <span className="result-tag type">
+                                        {result.node_type}
+                                    </span>
+
+                                    {result.language && (
+                                        <span className="result-tag lang">
+                                            {result.language}
+                                        </span>
+                                    )}
+
+                                    <span
+                                        className="result-score"
+                                        style={{
+                                            color: getScoreColor(
+                                                displayScore
+                                            ),
+                                        }}
+                                    >
+                                        {(displayScore * 100).toFixed(
+                                            0
+                                        )}
+                                        %
+                                    </span>
+
+                                </div>
 
                             </div>
 
-                            <div className="result-tags">
+                            <div className="result-code-wrapper">
 
-                                <span className="result-tag type">
-                                    {result.chunk_type}
-                                </span>
-
-                                {result.language && (
-                                    <span className="result-tag lang">
-                                        {result.language}
-                                    </span>
-                                )}
-
-                                <span
-                                    className="result-score"
-                                    style={{
-                                        color: getScoreColor(
-                                            result.score
-                                        ),
-                                    }}
+                                <button
+                                    className="copy-button"
+                                    title="Copy code"
+                                    onClick={() =>
+                                        handleCopy(
+                                            result.code || "",
+                                            index
+                                        )
+                                    }
                                 >
-                                    {(result.score * 100).toFixed(
-                                        0
+                                    {copiedIndex === index ? (
+                                        <Check size={14} />
+                                    ) : (
+                                        <Copy size={14} />
                                     )}
-                                    %
-                                </span>
+                                </button>
+
+                                <pre className="result-code">
+                                    <code>
+                                        {result.code}
+                                    </code>
+                                </pre>
 
                             </div>
 
                         </div>
+                    );
 
-                        <pre className="result-code">
-                            <code>
-                                {result.content}
-                            </code>
-                        </pre>
-
-                    </div>
-
-                ))}
+                })}
 
             </div>
 

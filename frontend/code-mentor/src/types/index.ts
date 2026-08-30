@@ -30,10 +30,14 @@ export interface ChatMessage {
 
 export interface ChatSource {
     file_path: string;
-    chunk_type: string;
     language: string;
-    content: string;
+    node_type: string;
+    name: string;
+    parent?: string;
+    start_line: number;
+    end_line: number;
     score?: number;
+    code: string;
 }
 
 export interface ChatResponse {
@@ -48,11 +52,20 @@ export interface ChatResponse {
 // Search
 
 export interface SearchResult {
-    file_path: string;
-    chunk_type: string;
-    language: string;
-    content: string;
     score: number;
+    repository_id: string;
+    language: string;
+    file_path: string;
+    node_type: string;
+    name: string;
+    parent?: string;
+    start_line: number;
+    end_line: number;
+    code: string;
+    // Hybrid search additional fields
+    semantic_score?: number;
+    keyword_score?: number;
+    hybrid_score?: number;
 }
 
 export interface SearchResponse {

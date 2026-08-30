@@ -5,7 +5,10 @@ import {
 
 import {
     X,
-    Upload
+    Upload,
+    Loader2,
+    CheckCircle2,
+    AlertCircle
 } from "lucide-react";
 
 interface Props {
@@ -17,6 +20,15 @@ interface Props {
         file: File
     ) => Promise<void>;
 }
+
+
+type UploadState =
+    | "idle"
+    | "uploading"
+    | "processing"
+    | "success"
+    | "error";
+
 
 export default function UploadModal({
     open,
@@ -30,38 +42,169 @@ export default function UploadModal({
     const [file, setFile] =
         useState<File | null>(null);
 
-    const [uploading, setUploading] =
-        useState(false);
+    const [uploadState, setUploadState] =
+        useState<UploadState>("idle");
+
+    const [errorMessage, setErrorMessage] =
+        useState<string | null>(null);
 
     if (!open) {
         return null;
     }
 
-    const handleUpload = async () => {
+    const isBusy =
+        uploadState === "uploading" ||
+        uploadState === "processing";
 
-        if (!file) {
+    const handleClose = () => {
+
+        if (isBusy) {
             return;
         }
 
+        setFile(null);
+        setUploadState("idle");
+        setErrorMessage(null);
+
+        onClose();
+    };
+
+    const handleUpload = async () => {
+
+        if (!file || isBusy) {
+            return;
+        }
+
+        setErrorMessage(null);
+        setUploadState("uploading");
+
         try {
 
-            setUploading(true);
+            // Short delay so user sees "Uploading" state
+            // before it transitions to processing
+            await new Promise(
+                (resolve) => setTimeout(resolve, 300)
+            );
+
+            setUploadState("processing");
 
             await onUpload(file);
 
-            setFile(null);
+            setUploadState("success");
 
-            onClose();
+            // Auto-close on success after brief delay
+            setTimeout(() => {
 
-        } finally {
+                setFile(null);
+                setUploadState("idle");
+                setErrorMessage(null);
 
-            setUploading(false);
+                onClose();
 
+            }, 1200);
+
+        } catch (error) {
+
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : "Upload failed. Please try again.";
+
+            setErrorMessage(message);
+            setUploadState("error");
         }
     };
 
+    const handleDrop = (
+        event: React.DragEvent
+    ) => {
+
+        event.preventDefault();
+
+        if (isBusy) {
+            return;
+        }
+
+        const dropped =
+            event.dataTransfer.files[0];
+
+        if (
+            dropped &&
+            dropped.name.toLowerCase().endsWith(".zip")
+        ) {
+            setFile(dropped);
+            setErrorMessage(null);
+        } else {
+            setErrorMessage(
+                "Only .zip files are supported."
+            );
+        }
+    };
+
+    const handleDragOver = (
+        event: React.DragEvent
+    ) => {
+        event.preventDefault();
+    };
+
+
+    const renderStatusMessage = () => {
+
+        switch (uploadState) {
+
+            case "uploading":
+                return (
+                    <div className="upload-status">
+                        <Loader2 size={20} className="spinning" />
+                        <span>Uploading repository...</span>
+                    </div>
+                );
+
+            case "processing":
+                return (
+                    <div className="upload-status">
+                        <Loader2 size={20} className="spinning" />
+                        <span>
+                            Processing repository...
+                            This may take a moment.
+                        </span>
+                    </div>
+                );
+
+            case "success":
+                return (
+                    <div className="upload-status success">
+                        <CheckCircle2 size={20} />
+                        <span>Repository ready!</span>
+                    </div>
+                );
+
+            case "error":
+                return (
+                    <div className="upload-status error">
+                        <AlertCircle size={20} />
+                        <span>
+                            {errorMessage ||
+                                "Upload failed."}
+                        </span>
+                    </div>
+                );
+
+            default:
+                return null;
+        }
+    };
+
+
     return (
-        <div className="modal-overlay">
+        <div
+            className="modal-overlay"
+            onClick={(event) => {
+                if (event.target === event.currentTarget) {
+                    handleClose();
+                }
+            }}
+        >
 
             <div className="upload-modal">
 
@@ -72,8 +215,9 @@ export default function UploadModal({
                     </h2>
 
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         className="icon-button"
+                        disabled={isBusy}
                     >
                         <X size={20} />
                     </button>
@@ -81,16 +225,25 @@ export default function UploadModal({
                 </div>
 
 
-                <div className="upload-area">
+                <div
+                    className={`upload-area ${
+                        isBusy ? "disabled" : ""
+                    }`}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                >
 
                     <Upload size={36} />
 
                     <p>
-                        Select a repository ZIP file
+                        {file
+                            ? "Ready to upload"
+                            : "Drag and drop or select a repository ZIP"
+                        }
                     </p>
 
                     <span>
-                        Currently only .zip files are supported
+                        Only .zip files are supported
                     </span>
 
                     <input
@@ -105,6 +258,8 @@ export default function UploadModal({
 
                             if (selected) {
                                 setFile(selected);
+                                setErrorMessage(null);
+                                setUploadState("idle");
                             }
 
                         }}
@@ -115,25 +270,32 @@ export default function UploadModal({
                         onClick={() =>
                             fileInputRef.current?.click()
                         }
+                        disabled={isBusy}
                     >
                         Choose ZIP
                     </button>
 
                     {file && (
                         <div className="selected-file">
-                            {file.name}
+                            📦 {file.name}
+                            <span className="file-size">
+                                {(file.size / 1024 / 1024).toFixed(1)} MB
+                            </span>
                         </div>
                     )}
 
                 </div>
 
 
+                {renderStatusMessage()}
+
+
                 <div className="modal-actions">
 
                     <button
                         className="secondary-button"
-                        onClick={onClose}
-                        disabled={uploading}
+                        onClick={handleClose}
+                        disabled={isBusy}
                     >
                         Cancel
                     </button>
@@ -143,12 +305,14 @@ export default function UploadModal({
                         onClick={handleUpload}
                         disabled={
                             !file ||
-                            uploading
+                            isBusy ||
+                            uploadState === "success"
                         }
                     >
-                        {uploading
+                        {isBusy
                             ? "Processing..."
-                            : "Upload Repository"}
+                            : "Upload Repository"
+                        }
                     </button>
 
                 </div>
