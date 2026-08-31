@@ -9,6 +9,7 @@ import UploadModal from "./components/UploadModal";
 import Loading from "./components/Loading";
 import ChatPanel from "./components/ChatPanel";
 import SearchPanel from "./components/SearchPanel";
+import CodeExplorer from "./components/CodeExplorer";
 
 import type {
     Repository
@@ -22,12 +23,13 @@ import {
 
 import {
     LayoutDashboard,
+    FolderCode,
     MessageSquare,
     Search
 } from "lucide-react";
 
 
-type Tab = "dashboard" | "chat" | "search";
+type Tab = "dashboard" | "explorer" | "chat" | "search";
 
 
 export default function App() {
@@ -228,6 +230,15 @@ export default function App() {
                     />
                 );
 
+            case "explorer":
+                return (
+                    <CodeExplorer
+                        repository={
+                            selectedRepository
+                        }
+                    />
+                );
+
             case "search":
                 return (
                     <SearchPanel
@@ -420,6 +431,24 @@ export default function App() {
 
                             <button
                                 className={`tab-button ${
+                                    activeTab === "explorer"
+                                        ? "active"
+                                        : ""
+                                }`}
+                                onClick={() =>
+                                    setActiveTab(
+                                        "explorer"
+                                    )
+                                }
+                            >
+                                <FolderCode
+                                    size={16}
+                                />
+                                Explorer
+                            </button>
+
+                            <button
+                                className={`tab-button ${
                                     activeTab === "chat"
                                         ? "active"
                                         : ""
@@ -469,7 +498,7 @@ export default function App() {
 
 
                 <section className={
-                    activeTab === "chat" || activeTab === "search"
+                    activeTab === "chat" || activeTab === "search" || activeTab === "explorer"
                         ? "dashboard no-padding"
                         : "dashboard"
                 }>

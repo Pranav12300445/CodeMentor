@@ -74,3 +74,20 @@ export interface SearchResponse {
     count: number;
     results: SearchResult[];
 }
+
+
+// File Explorer
+
+export interface FileTreeNode {
+    name: string;
+    type: "file" | "directory";
+    path: string;
+    children?: FileTreeNode[];
+}
+
+export interface FileContentResponse {
+    file_path: string;
+    language: string;
+    content: string;
+    size: number;
+}

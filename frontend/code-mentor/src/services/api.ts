@@ -3,6 +3,8 @@ import axios from "axios";
 import type {
     ChatResponse,
     SearchResponse,
+    FileTreeNode,
+    FileContentResponse,
 } from "../types";
 
 const api = axios.create({
@@ -97,6 +99,32 @@ export const searchCode = async (
             query,
             top_k: topK,
         }
+    );
+
+    return response.data;
+};
+
+
+// ─── File Explorer ───
+
+export const getFileTree = async (
+    repositoryId: string
+): Promise<{ repository_id: string; tree: FileTreeNode[] }> => {
+
+    const response = await api.get(
+        `/api/repository/${repositoryId}/files`
+    );
+
+    return response.data;
+};
+
+export const getFileContent = async (
+    repositoryId: string,
+    filePath: string
+): Promise<FileContentResponse> => {
+
+    const response = await api.get(
+        `/api/repository/${repositoryId}/files/${filePath}`
     );
 
     return response.data;

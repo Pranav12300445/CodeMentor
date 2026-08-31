@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from fastapi import APIRouter, UploadFile, File, HTTPException
 
 from app.ingestion.repository_loader import (
@@ -241,3 +244,223 @@ def delete_repository(
         "message": "Repository deleted",
         "repository_id": repository_id
     }
+
+
+# ==========================================================
+# File Explorer
+# ==========================================================
+
+@router.get("/{repository_id}/files")
+def get_file_tree(
+    repository_id: str
+):
+    """
+    Return the file tree for a repository as a
+    nested JSON structure.
+    """
+
+    repository = repository_service.get(
+        repository_id
+    )
+
+    if repository is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Repository not found"
+        )
+
+    repository_path = repository["path"]
+
+    if not os.path.isdir(repository_path):
+
+        raise HTTPException(
+            status_code=404,
+            detail="Repository files not found on disk"
+        )
+
+    from app.ingestion.file_scanner import (
+        scan_repository
+    )
+
+    flat_files = scan_repository(repository_path)
+
+    tree = _build_tree(flat_files)
+
+    return {
+        "repository_id": repository_id,
+        "tree": tree
+    }
+
+
+@router.get("/{repository_id}/files/{file_path:path}")
+def get_file_content(
+    repository_id: str,
+    file_path: str
+):
+    """
+    Return the content of a single file from a repository.
+    """
+
+    repository = repository_service.get(
+        repository_id
+    )
+
+    if repository is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Repository not found"
+        )
+
+    repository_path = Path(repository["path"])
+
+    # Path traversal protection
+    resolved = (
+        repository_path / file_path
+    ).resolve()
+
+    if not str(resolved).startswith(
+        str(repository_path.resolve())
+    ):
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file path"
+        )
+
+    if not resolved.is_file():
+
+        raise HTTPException(
+            status_code=404,
+            detail="File not found"
+        )
+
+    from app.ingestion.file_scanner import (
+        BINARY_EXTENSIONS
+    )
+
+    extension = resolved.suffix.lower()
+
+    if extension in BINARY_EXTENSIONS:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Binary files cannot be displayed"
+        )
+
+    from app.ingestion.language_detector import (
+        detect_language
+    )
+
+    try:
+
+        content = resolved.read_text(
+            encoding="utf-8",
+            errors="replace"
+        )
+
+    except Exception as exc:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to read file: {exc}"
+        )
+
+    return {
+        "file_path": file_path,
+        "language": detect_language(resolved.name),
+        "content": content,
+        "size": resolved.stat().st_size
+    }
+
+
+# ==========================================================
+# Helpers
+# ==========================================================
+
+def _build_tree(
+    file_paths: list[str]
+) -> list[dict]:
+    """
+    Convert a flat list of relative file paths into
+    a nested tree structure suitable for JSON output.
+    """
+
+    root: dict = {}
+
+    for file_path in file_paths:
+
+        parts = file_path.replace("\\", "/").split("/")
+
+        current = root
+
+        for part in parts[:-1]:
+
+            if part not in current:
+                current[part] = {}
+
+            current = current[part]
+
+        # Mark file with None
+        current[parts[-1]] = None
+
+    def to_list(node: dict) -> list[dict]:
+
+        items = []
+
+        for name, children in sorted(
+            node.items(),
+            key=lambda item: (
+                item[1] is None,
+                item[0].lower()
+            )
+        ):
+
+            if children is None:
+
+                items.append({
+                    "name": name,
+                    "type": "file",
+                    "path": name
+                })
+
+            else:
+
+                child_list = to_list(children)
+
+                items.append({
+                    "name": name,
+                    "type": "directory",
+                    "children": child_list
+                })
+
+        return items
+
+    result = to_list(root)
+
+    # Attach full paths
+    def attach_paths(
+        nodes: list[dict],
+        prefix: str = ""
+    ):
+
+        for node in nodes:
+
+            full_path = (
+                f"{prefix}/{node['name']}"
+                if prefix
+                else node["name"]
+            )
+
+            node["path"] = full_path
+
+            if node["type"] == "directory":
+                attach_paths(
+                    node["children"],
+                    full_path
+                )
+
+    attach_paths(result)
+
+    return result
