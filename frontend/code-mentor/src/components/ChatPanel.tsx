@@ -1,4 +1,5 @@
 import {
+    useCallback,
     useEffect,
     useRef,
     useState
@@ -13,7 +14,8 @@ import {
     FileCode,
     Loader2,
     Copy,
-    Check
+    Check,
+    Trash2
 } from "lucide-react";
 
 import type {
@@ -27,6 +29,15 @@ import { sendChatMessage } from "../services/api";
 interface Props {
     repository: Repository;
 }
+
+
+const SUGGESTIONS = [
+    "What does this codebase do?",
+    "What are the main entry points?",
+    "Explain the architecture",
+    "Find error handling patterns",
+    "What APIs does this expose?",
+];
 
 
 export default function ChatPanel({
@@ -55,6 +66,7 @@ export default function ChatPanel({
         useRef<HTMLTextAreaElement>(null);
 
 
+    // Auto-scroll on new messages
     useEffect(() => {
 
         messagesEndRef.current?.scrollIntoView({
@@ -64,11 +76,27 @@ export default function ChatPanel({
     }, [messages]);
 
 
+    // Reset on repo change
     useEffect(() => {
         setMessages([]);
         setInput("");
         setExpandedSources(new Set());
     }, [repository.id]);
+
+
+    // Auto-resize textarea
+    const handleInputChange = useCallback(
+        (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+
+            setInput(event.target.value);
+
+            const textarea = event.target;
+            textarea.style.height = "auto";
+            textarea.style.height =
+                Math.min(textarea.scrollHeight, 150) + "px";
+
+        }, []
+    );
 
 
     const toggleSource = (messageId: string) => {
@@ -131,6 +159,11 @@ export default function ChatPanel({
 
         setInput("");
         setSending(true);
+
+        // Reset textarea height
+        if (inputRef.current) {
+            inputRef.current.style.height = "auto";
+        }
 
         try {
 
@@ -197,8 +230,26 @@ export default function ChatPanel({
     };
 
 
+    const handleClearChat = () => {
+
+        setMessages([]);
+        setExpandedSources(new Set());
+
+        inputRef.current?.focus();
+    };
+
+
+    const formatTime = (date: Date) => {
+
+        return date.toLocaleTimeString(
+            [], { hour: "2-digit", minute: "2-digit" }
+        );
+    };
+
+
     const renderContent = (text: string) => {
 
+        // Split on fenced code blocks
         const parts = text.split(
             /(```[\s\S]*?```)/g
         );
@@ -261,18 +312,121 @@ export default function ChatPanel({
                 }
             }
 
+            // Render text with inline formatting
             return (
                 <span key={index}>
-                    {part.split("\n").map(
-                        (line, lineIndex) => (
-                            <span key={lineIndex}>
-                                {lineIndex > 0 && <br />}
-                                {line}
-                            </span>
-                        )
-                    )}
+                    {renderInlineFormatting(part)}
                 </span>
             );
+        });
+    };
+
+
+    const renderInlineFormatting = (text: string) => {
+
+        // Process: bold, inline code, bullet lists
+        const lines = text.split("\n");
+
+        return lines.map((line, lineIndex) => {
+
+            const trimmedLine = line.trim();
+
+            // Bullet list items
+            if (
+                trimmedLine.startsWith("- ") ||
+                trimmedLine.startsWith("* ") ||
+                trimmedLine.startsWith("• ")
+            ) {
+
+                return (
+                    <div
+                        key={lineIndex}
+                        className="chat-list-item"
+                    >
+                        <span className="chat-bullet">
+                            •
+                        </span>
+
+                        <span>
+                            {renderInlineStyles(
+                                trimmedLine.slice(2)
+                            )}
+                        </span>
+                    </div>
+                );
+            }
+
+            // Numbered list items
+            const numberedMatch =
+                trimmedLine.match(/^(\d+)\.\s+(.+)/);
+
+            if (numberedMatch) {
+
+                return (
+                    <div
+                        key={lineIndex}
+                        className="chat-list-item"
+                    >
+                        <span className="chat-bullet">
+                            {numberedMatch[1]}.
+                        </span>
+
+                        <span>
+                            {renderInlineStyles(
+                                numberedMatch[2]
+                            )}
+                        </span>
+                    </div>
+                );
+            }
+
+            return (
+                <span key={lineIndex}>
+                    {lineIndex > 0 && <br />}
+                    {renderInlineStyles(line)}
+                </span>
+            );
+        });
+    };
+
+
+    const renderInlineStyles = (text: string) => {
+
+        // Match: **bold**, `inline code`
+        const parts = text.split(
+            /(\*\*[^*]+\*\*|`[^`]+`)/g
+        );
+
+        return parts.map((part, index) => {
+
+            if (
+                part.startsWith("**") &&
+                part.endsWith("**")
+            ) {
+
+                return (
+                    <strong key={index}>
+                        {part.slice(2, -2)}
+                    </strong>
+                );
+            }
+
+            if (
+                part.startsWith("`") &&
+                part.endsWith("`")
+            ) {
+
+                return (
+                    <code
+                        key={index}
+                        className="inline-code"
+                    >
+                        {part.slice(1, -1)}
+                    </code>
+                );
+            }
+
+            return part;
         });
     };
 
@@ -299,38 +453,21 @@ export default function ChatPanel({
 
                         <div className="chat-suggestions">
 
-                            <button
-                                className="suggestion-chip"
-                                onClick={() =>
-                                    setInput(
-                                        "What does this codebase do?"
-                                    )
-                                }
-                            >
-                                What does this codebase do?
-                            </button>
+                            {SUGGESTIONS.map(
+                                (suggestion) => (
 
-                            <button
-                                className="suggestion-chip"
-                                onClick={() =>
-                                    setInput(
-                                        "What are the main entry points?"
-                                    )
-                                }
-                            >
-                                What are the main entry points?
-                            </button>
+                                    <button
+                                        key={suggestion}
+                                        className="suggestion-chip"
+                                        onClick={() =>
+                                            setInput(suggestion)
+                                        }
+                                    >
+                                        {suggestion}
+                                    </button>
 
-                            <button
-                                className="suggestion-chip"
-                                onClick={() =>
-                                    setInput(
-                                        "Explain the architecture"
-                                    )
-                                }
-                            >
-                                Explain the architecture
-                            </button>
+                                )
+                            )}
 
                         </div>
 
@@ -353,6 +490,21 @@ export default function ChatPanel({
                         </div>
 
                         <div className="message-body">
+
+                            <div className="message-meta">
+                                <span className="message-role">
+                                    {message.role === "user"
+                                        ? "You"
+                                        : "CodeMentor"
+                                    }
+                                </span>
+
+                                <span className="message-time">
+                                    {formatTime(
+                                        message.timestamp
+                                    )}
+                                </span>
+                            </div>
 
                             <div className="message-content">
                                 {renderContent(
@@ -499,15 +651,24 @@ export default function ChatPanel({
 
             <div className="chat-input-area">
 
+                {messages.length > 0 && (
+                    <button
+                        className="clear-chat-button"
+                        onClick={handleClearChat}
+                        title="Clear conversation"
+                    >
+                        <Trash2 size={14} />
+                        Clear
+                    </button>
+                )}
+
                 <div className="chat-input-wrapper">
 
                     <textarea
                         ref={inputRef}
                         className="chat-input"
                         value={input}
-                        onChange={(event) =>
-                            setInput(event.target.value)
-                        }
+                        onChange={handleInputChange}
                         onKeyDown={handleKeyDown}
                         placeholder={`Ask about ${repository.name}...`}
                         rows={1}

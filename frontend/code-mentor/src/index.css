@@ -503,8 +503,15 @@ button {
         #131a24 100%
     );
 
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+
+    animation: scaleIn 0.3s ease backwards;
 }
+
+.stat-card:nth-child(1) { animation-delay: 0s; }
+.stat-card:nth-child(2) { animation-delay: 0.05s; }
+.stat-card:nth-child(3) { animation-delay: 0.1s; }
+.stat-card:nth-child(4) { animation-delay: 0.15s; }
 
 .stat-card:hover {
     border-color: #30363d;
@@ -819,25 +826,6 @@ button {
     justify-content: center;
 }
 
-.suggestion-chip {
-    border: 1px solid #30363d;
-    border-radius: 20px;
-
-    padding: 8px 16px;
-
-    background: #161b22;
-    color: #8b949e;
-
-    font-size: 13px;
-
-    transition: all 0.15s ease;
-}
-
-.suggestion-chip:hover {
-    border-color: #58a6ff;
-    color: #58a6ff;
-    background: rgba(88, 166, 255, 0.08);
-}
 
 
 /* Chat messages */
@@ -847,6 +835,8 @@ button {
     gap: 14px;
 
     padding: 16px 0;
+
+    animation: messageSlideIn 0.3s ease backwards;
 }
 
 .chat-message + .chat-message {
@@ -884,6 +874,26 @@ button {
     min-width: 0;
 }
 
+.message-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin-bottom: 4px;
+}
+
+.message-role {
+    font-size: 12px;
+    font-weight: 600;
+    color: #e6edf3;
+}
+
+.message-time {
+    font-size: 11px;
+    color: #484f58;
+    font-family: "JetBrains Mono", monospace;
+}
+
 .message-content {
     font-size: 14px;
     line-height: 1.7;
@@ -891,6 +901,31 @@ button {
     color: #e6edf3;
 
     word-wrap: break-word;
+}
+
+.inline-code {
+    padding: 2px 6px;
+
+    border-radius: 4px;
+
+    background: #21262d;
+    color: #e6edf3;
+
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.9em;
+}
+
+.chat-list-item {
+    display: flex;
+    gap: 8px;
+
+    padding: 2px 0;
+}
+
+.chat-bullet {
+    color: #58a6ff;
+    flex-shrink: 0;
+    font-weight: 600;
 }
 
 
@@ -1094,7 +1129,38 @@ button {
 
 /* Chat input */
 
+.clear-chat-button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    padding: 4px 10px;
+    margin-bottom: 8px;
+
+    border: 1px solid #30363d;
+    border-radius: 6px;
+
+    background: transparent;
+    color: #8b949e;
+
+    font-size: 12px;
+    font-family: inherit;
+
+    cursor: pointer;
+    transition: all 0.15s ease;
+    align-self: flex-end;
+}
+
+.clear-chat-button:hover {
+    background: rgba(248, 81, 73, 0.1);
+    border-color: rgba(248, 81, 73, 0.3);
+    color: #f85149;
+}
+
 .chat-input-area {
+    display: flex;
+    flex-direction: column;
+
     padding: 16px 30px 20px;
 
     border-top: 1px solid #202832;
@@ -1635,6 +1701,33 @@ button {
     gap: 4px;
 }
 
+.suggestion-chip {
+    padding: 8px 16px;
+
+    border: 1px solid #21262d;
+    border-radius: 20px;
+
+    background: transparent;
+    color: #8b949e;
+
+    font-size: 13px;
+
+    cursor: pointer;
+
+    transition: all 0.2s ease;
+}
+
+.suggestion-chip:hover {
+    border-color: #1f6feb;
+    color: #58a6ff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(31, 111, 235, 0.15);
+}
+
+.suggestion-chip:active {
+    transform: translateY(0);
+}
+
 .mode-button {
     padding: 6px 14px;
 
@@ -1844,7 +1937,15 @@ button {
     background: #10151c;
 
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    animation: cardFadeIn 0.3s ease backwards;
 }
+
+.search-result-card:nth-child(1) { animation-delay: 0s; }
+.search-result-card:nth-child(2) { animation-delay: 0.04s; }
+.search-result-card:nth-child(3) { animation-delay: 0.08s; }
+.search-result-card:nth-child(4) { animation-delay: 0.12s; }
+.search-result-card:nth-child(5) { animation-delay: 0.16s; }
 
 .search-result-card:hover {
     border-color: #30363d;
@@ -2099,6 +2200,39 @@ button {
     }
 }
 
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes cardFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .spinning {
     animation: spin 1s linear infinite;
 }
@@ -2106,6 +2240,29 @@ button {
 @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+}
+
+
+/* Button press effects */
+
+.primary-button:active {
+    transform: scale(0.97);
+}
+
+.secondary-button:active {
+    transform: scale(0.97);
+}
+
+.send-button:active {
+    transform: scale(0.93);
+}
+
+.tab-button {
+    transition: all 0.15s ease;
+}
+
+.tab-button:active {
+    transform: scale(0.97);
 }
 
 

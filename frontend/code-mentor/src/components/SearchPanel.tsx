@@ -295,8 +295,9 @@ export default function SearchPanel({
                             onClick={() =>
                                 setMode("hybrid")
                             }
+                            title="Combines AI understanding + keyword matching"
                         >
-                            Hybrid
+                            Smart Search
                         </button>
 
                         <button
@@ -308,8 +309,9 @@ export default function SearchPanel({
                             onClick={() =>
                                 setMode("semantic")
                             }
+                            title="Uses AI embeddings to find conceptually similar code"
                         >
-                            Semantic
+                            AI Search
                         </button>
 
                     </div>

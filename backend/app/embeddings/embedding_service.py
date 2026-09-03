@@ -26,13 +26,15 @@ class EmbeddingService:
 
     def embed_texts(
         self,
-        texts: List[str]
+        texts: List[str],
+        batch_size: int = 32
     ) -> List[List[float]]:
 
         embeddings = self.model.encode(
             texts,
             normalize_embeddings=True,
-            show_progress_bar=True
+            show_progress_bar=True,
+            batch_size=batch_size
         )
 
         return embeddings.tolist()

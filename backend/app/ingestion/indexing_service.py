@@ -28,7 +28,8 @@ class IndexingService:
     def index_chunks(
         self,
         chunks: List[Dict[str, Any]],
-        repository_id: str
+        repository_id: str,
+        batch_size: int = 100
     ):
 
         if not chunks:
@@ -63,10 +64,22 @@ class IndexingService:
 
             payloads.append(payload)
 
-        return self.qdrant_service.upsert_chunks(
-            vectors=vectors,
-            payloads=payloads
-        )
+        # Batch upsert for better performance
+        total_indexed = 0
+
+        for i in range(0, len(vectors), batch_size):
+
+            batch_vectors = vectors[i:i + batch_size]
+            batch_payloads = payloads[i:i + batch_size]
+
+            total_indexed += (
+                self.qdrant_service.upsert_chunks(
+                    vectors=batch_vectors,
+                    payloads=batch_payloads
+                )
+            )
+
+        return total_indexed
 
     @staticmethod
     def _build_embedding_text(
